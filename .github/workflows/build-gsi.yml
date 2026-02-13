@@ -83,24 +83,24 @@ jobs:
           repo init -u https://github.com/LineageOS/android.git -b ${{ steps.set_branch.outputs.branch }} --depth=1
 
       - name: Sync source
-        working-directory: ~/android/lineage
-        run: repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+        run: |
+          cd ~/android/lineage
+          repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
 
       - name: Set up build environment
-        working-directory: ~/android/lineage
         run: |
+          cd ~/android/lineage
           source build/envsetup.sh
           lunch lineage_${{ github.event.inputs.arch }}-userdebug
 
       - name: Build system image
-        working-directory: ~/android/lineage
         run: |
+          cd ~/android/lineage
           make systemimage -j$(nproc)
 
       - name: Prepare output
-        working-directory: ~/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}
         run: |
-          # Копируем с понятным именем
+          cd ~/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}
           if [ -f system.img ]; then
             cp system.img lineage-gsi-${{ github.event.inputs.android_version }}-${{ github.run_number }}.img
           fi
