@@ -84,8 +84,17 @@ jobs:
 
       - name: Sync source
         run: |
-          cd ~/android/lineage
-          repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+          echo "Current directory: $(pwd)"
+    echo "Changing to ~/android/lineage"
+    cd ~/android/lineage || { echo "Failed to cd"; exit 1; }
+    echo "Now in: $(pwd)"
+    echo "Contents of .repo:"
+    ls -la .repo || echo ".repo not found"
+    echo "Looking for repo command:"
+    which repo || echo "repo not found in PATH"
+    echo "Starting repo sync..."
+    repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+    echo "repo sync finished"
 
       - name: Set up build environment
         run: |
@@ -113,4 +122,5 @@ jobs:
           retention-days: 30
 
          
+
 
