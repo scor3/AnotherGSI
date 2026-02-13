@@ -84,12 +84,15 @@ jobs:
 
       - name: Sync source
         run: |
+          set -e  # сразу падать при ошибке
           cd $HOME/android/lineage
           echo "Current directory: $(pwd)"
           echo "repo version: $(repo --version)"
-          # Запуск синка с оптимизированными параметрами
-          repo sync -j4 --force-sync --no-clone-bundle --no-tags --no-repo-verify
-          echo "repo sync completed"
+          echo "Checking .repo directory:"
+          ls -la .repo || echo ".repo directory not found"
+          echo "Running repo sync with trace (verbose)..."
+          repo sync -j4 --force-sync --no-clone-bundle --no-tags --no-repo-verify --trace
+          echo "repo sync completed successfully"
 
       - name: Set up build environment
         run: |
