@@ -82,18 +82,17 @@ jobs:
           git config --global user.email "actions@github.com"
           repo init -u https://github.com/LineageOS/android.git -b ${{ steps.set_branch.outputs.branch }} --depth=1
 
-      - name: Sync source
+      - name: Wipe and resync source (FIX FOR RUST ERROR)
         run: |
           set -e
           cd $HOME/android/lineage
-          echo "Current directory: $(pwd)"
-          echo "repo version: $(repo --version)"
-          # Удаляем проблемный проект, если он мешает
-          echo "Removing problematic prebuilts/rust (if exists)..."
-          rm -rf prebuilts/rust || true
-          echo "Running repo sync with force and retries..."
-          repo sync -j4 --force-sync --no-clone-bundle --no-tags --no-repo-verify --force-remove-dirty --retry-fetches=5
-          echo "repo sync completed"
+          echo "🔥 Current directory: $(pwd)"
+          echo "🔥 Removing ALL project files except .repo (if any)..."
+          # Удаляем всё, кроме .repo и самой папки
+          find . -maxdepth 1 -not -name '.repo' -not -name '.' -exec rm -rf {} \; 2>/dev/null || true
+          echo "🔥 Running repo sync from scratch..."
+          repo sync -j4 --force-sync --no-clone-bundle --no-tags --no-repo-verify
+          echo "✅ repo sync completed successfully"
 
       - name: Set up build environment
         run: |
