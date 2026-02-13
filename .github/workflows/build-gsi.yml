@@ -111,3 +111,5 @@ jobs:
           name: lineage-gsi-${{ github.event.inputs.android_version }}
           path: ~/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}/lineage-gsi-*.img
           retention-days: 30
+
+          fix paths
