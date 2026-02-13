@@ -66,50 +66,47 @@ jobs:
           restore-keys: |
             ccache-gsi-${{ steps.set_branch.outputs.branch }}-
 
-      - name: Initialize LineageOS source (shallow)
+      - name: Initialize LineageOS source
         run: |
           mkdir -p $HOME/android/lineage
           cd $HOME/android/lineage
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
-          repo init -u https://github.com/LineageOS/android.git -b ${{ steps.set_branch.outputs.branch }} --depth=1 --no-clone-bundle
+          repo init -u https://github.com/LineageOS/android.git -b ${{ steps.set_branch.outputs.branch }} --depth=1
 
-      - name: 🔥 NUCLEAR SYNC (RUST PROBLEM FIXED)
+      - name: Sync source (with force and retries)
         run: |
           cd $HOME/android/lineage
-          echo "🔥 Current directory: $(pwd)"
-          echo "🔥 Disk space before sync:"
+          echo "Current directory: $(pwd)"
+          echo "Disk space before sync:"
           df -h
           
-          # Полная зачистка rust-проекта
-          echo "🔥 Removing problematic rust project from .repo and worktree..."
-          rm -rf .repo/projects/prebuilts/rust.git || true
+          # Удаляем только проблемный rust, если он есть (но не трогаем манифесты)
           rm -rf prebuilts/rust || true
           
-          # Чистим манифесты от упоминаний rust
-          echo "🔥 Cleaning rust references from manifests..."
-          find .repo/manifests -name "*.xml" -exec sed -i '/rust/d' {} \; 2>/dev/null || true
+          # Синхронизируем всё с флагами надежности
+          echo "Running repo sync..."
+          repo sync -c -j4 --no-tags --force-sync --retry-fetches=5
           
-          # Синк с кучей флагов для надежности
-          echo "🔥 Running repo sync with maximum force..."
-          repo sync -c -j4 --no-tags --no-clone-bundle --force-sync --force-remove-dirty --retry-fetches=5 || true
-          
-          # Пробуем синкнуть rust отдельно (если выжил)
-          echo "🔥 Attempting to sync rust project specifically..."
-          repo sync platform/prebuilts/rust --force-sync || true
-          
-          # Если всё ещё не сдохло, создаем заглушку, чтобы дальше не падать
-          echo "🔥 Ensuring rust directory exists (as dummy)..."
-          mkdir -p prebuilts/rust
-          echo "# Dummy rust project" > prebuilts/rust/Android.bp
-          
-          echo "🔥 Disk space after sync:"
+          echo "Disk space after sync:"
           df -h
-          echo "✅ Sync phase completed (with or without rust)"
+          
+          # Проверяем, что нужные файлы на месте
+          echo "Checking for build/envsetup.sh..."
+          if [ ! -f build/envsetup.sh ]; then
+            echo "build/envsetup.sh not found! Syncing build/make specifically..."
+            repo sync build/make --force-sync
+          fi
+          
+          ls -la build/ || echo "build/ directory missing"
 
       - name: Set up build environment
         run: |
           cd $HOME/android/lineage
+          if [ ! -f build/envsetup.sh ]; then
+            echo "ERROR: build/envsetup.sh still missing!"
+            exit 1
+          fi
           source build/envsetup.sh
           lunch lineage_${{ github.event.inputs.arch }}-userdebug
 
