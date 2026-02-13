@@ -1,0 +1,113 @@
+name: Build LineageOS GSI with custom APKs
+
+on:
+  workflow_dispatch:
+    inputs:
+      android_version:
+        description: 'Android version (14 or 15)'
+        required: true
+        default: '15'
+        type: choice
+        options:
+          - '14'
+          - '15'
+      arch:
+        description: 'Architecture (arm64 only for GSI)'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - arm64
+
+env:
+  BRANCH_15: lineage-22.2
+  BRANCH_14: lineage-21.0
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout my repository (with APKs)
+        uses: actions/checkout@v4
+        with:
+          path: vendor/myprebuilts
+
+      - name: Prepare build environment
+        run: |
+          sudo apt update
+          sudo apt install -y openjdk-17-jdk git-core gnupg flex bison build-essential \
+            zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 libncurses5 \
+            lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev \
+            libxml2-utils xsltproc unzip fontconfig python3
+
+      - name: Install repo
+        run: |
+          mkdir -p ~/.bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+          chmod a+x ~/.bin/repo
+          echo "$HOME/.bin" >> $GITHUB_PATH
+
+      - name: Set branch based on input
+        id: set_branch
+        run: |
+          if [ "${{ github.event.inputs.android_version }}" = "15" ]; then
+            echo "branch=${{ env.BRANCH_15 }}" >> $GITHUB_OUTPUT
+          else
+            echo "branch=${{ env.BRANCH_14 }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-gsi-${{ steps.set_branch.outputs.branch }}-${{ github.run_id }}
+          restore-keys: |
+            ccache-gsi-${{ steps.set_branch.outputs.branch }}-
+
+      - name: Cache repo source (partial)
+        uses: actions/cache@v4
+        with:
+          path: ~/android/lineage/.repo
+          key: repo-gsi-${{ steps.set_branch.outputs.branch }}-${{ hashFiles('vendor/myprebuilts/apks/Android.mk') }}
+          restore-keys: |
+            repo-gsi-${{ steps.set_branch.outputs.branch }}-
+
+      - name: Initialize LineageOS source
+        run: |
+          mkdir -p ~/android/lineage
+          cd ~/android/lineage
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          repo init -u https://github.com/LineageOS/android.git -b ${{ steps.set_branch.outputs.branch }} --depth=1
+
+      - name: Sync source
+        working-directory: ~/android/lineage
+        run: repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+
+      - name: Set up build environment
+        working-directory: ~/android/lineage
+        run: |
+          source build/envsetup.sh
+          lunch lineage_${{ github.event.inputs.arch }}-userdebug
+
+      - name: Build system image
+        working-directory: ~/android/lineage
+        run: |
+          make systemimage -j$(nproc)
+
+      - name: Prepare output
+        working-directory: ~/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}
+        run: |
+          # Копируем с понятным именем
+          if [ -f system.img ]; then
+            cp system.img lineage-gsi-${{ github.event.inputs.android_version }}-${{ github.run_number }}.img
+          fi
+
+      - name: Upload GSI image
+        uses: actions/upload-artifact@v4
+        with:
+          name: lineage-gsi-${{ github.event.inputs.android_version }}
+          path: ~/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}/lineage-gsi-*.img
+          retention-days: 30
