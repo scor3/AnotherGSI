@@ -88,8 +88,11 @@ jobs:
           cd $HOME/android/lineage
           echo "Current directory: $(pwd)"
           echo "repo version: $(repo --version)"
-          echo "Running repo sync..."
-          repo sync -j4 --force-sync --no-clone-bundle --no-tags --no-repo-verify
+          # Удаляем проблемный проект, если он мешает
+          echo "Removing problematic prebuilts/rust (if exists)..."
+          rm -rf prebuilts/rust || true
+          echo "Running repo sync with force and retries..."
+          repo sync -j4 --force-sync --no-clone-bundle --no-tags --no-repo-verify --force-remove-dirty --retry-fetches=5
           echo "repo sync completed"
 
       - name: Set up build environment
