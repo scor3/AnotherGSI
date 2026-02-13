@@ -86,10 +86,9 @@ jobs:
         run: |
           cd $HOME/android/lineage
           echo "Current directory: $(pwd)"
-          # Проверка, что repo доступен
-          which repo
-          # Запуск синка
-          repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+          echo "repo version: $(repo --version)"
+          # Запуск синка с оптимизированными параметрами
+          repo sync -j4 --force-sync --no-clone-bundle --no-tags --no-repo-verify
           echo "repo sync completed"
 
       - name: Set up build environment
