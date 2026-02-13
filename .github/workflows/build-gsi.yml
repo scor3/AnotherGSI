@@ -44,9 +44,9 @@ jobs:
 
       - name: Install repo
         run: |
-          mkdir -p ~/.bin
-          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
-          chmod a+x ~/.bin/repo
+          mkdir -p $HOME/.bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > $HOME/.bin/repo
+          chmod a+x $HOME/.bin/repo
           echo "$HOME/.bin" >> $GITHUB_PATH
 
       - name: Set branch based on input
@@ -69,47 +69,43 @@ jobs:
       - name: Cache repo source (partial)
         uses: actions/cache@v4
         with:
-          path: ~/android/lineage/.repo
+          path: $HOME/android/lineage/.repo
           key: repo-gsi-${{ steps.set_branch.outputs.branch }}-${{ hashFiles('vendor/myprebuilts/apks/Android.mk') }}
           restore-keys: |
             repo-gsi-${{ steps.set_branch.outputs.branch }}-
 
       - name: Initialize LineageOS source
         run: |
-          mkdir -p ~/android/lineage
-          cd ~/android/lineage
+          mkdir -p $HOME/android/lineage
+          cd $HOME/android/lineage
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
           repo init -u https://github.com/LineageOS/android.git -b ${{ steps.set_branch.outputs.branch }} --depth=1
 
       - name: Sync source
         run: |
+          cd $HOME/android/lineage
           echo "Current directory: $(pwd)"
-    echo "Changing to ~/android/lineage"
-    cd ~/android/lineage || { echo "Failed to cd"; exit 1; }
-    echo "Now in: $(pwd)"
-    echo "Contents of .repo:"
-    ls -la .repo || echo ".repo not found"
-    echo "Looking for repo command:"
-    which repo || echo "repo not found in PATH"
-    echo "Starting repo sync..."
-    repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
-    echo "repo sync finished"
+          # Проверка, что repo доступен
+          which repo
+          # Запуск синка
+          repo sync -j$(nproc) --force-sync --no-clone-bundle --no-tags
+          echo "repo sync completed"
 
       - name: Set up build environment
         run: |
-          cd ~/android/lineage
+          cd $HOME/android/lineage
           source build/envsetup.sh
           lunch lineage_${{ github.event.inputs.arch }}-userdebug
 
       - name: Build system image
         run: |
-          cd ~/android/lineage
+          cd $HOME/android/lineage
           make systemimage -j$(nproc)
 
       - name: Prepare output
         run: |
-          cd ~/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}
+          cd $HOME/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}
           if [ -f system.img ]; then
             cp system.img lineage-gsi-${{ github.event.inputs.android_version }}-${{ github.run_number }}.img
           fi
@@ -118,10 +114,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lineage-gsi-${{ github.event.inputs.android_version }}
-          path: ~/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}/lineage-gsi-*.img
+          path: $HOME/android/lineage/out/target/product/generic_${{ github.event.inputs.arch }}/lineage-gsi-*.img
           retention-days: 30
-
-         
-
-
-
